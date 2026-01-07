@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Draw</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    .toolbar { display: flex; gap: 10px; margin-bottom: 15px; justify-content: center; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px; flex-wrap: wrap; }
+    .icon-btn { background: rgba(255,255,255,0.1); color: var(--fg); width: 40px; height: 40px; border-radius: 8px; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+    .icon-btn.active { background: var(--fg); color: var(--bg); }
+  </style>
+</head>
+<body class="dark">
+<div class="dot-bg"></div>
+<div class="form-wrapper">
+  <div class="form-card" style="max-width: 600px;">
+    <div class="header"><h2>Creative Canvas</h2></div>
+    <div class="toolbar">
+      <button class="icon-btn active" id="brushBtn">✏️</button>
+      <button class="icon-btn" id="eraserBtn">🧹</button>
+      <input type="color" id="colorPicker" value="#ffffff" style="width:40px; height:40px; border:none; padding:0;">
+      <input type="range" id="sizeSlider" min="2" max="30" value="5" style="width:80px;">
+      <button class="icon-btn" id="clearBtn" style="background:#ff4444; color:white;">🗑️</button>
+    </div>
+    <canvas id="drawingCanvas" style="background:#000; border:1px solid #444; width:100%; height:350px; border-radius:12px; touch-action:none;"></canvas>
+    <div class="btn-row" id="saveSection">
+      <button id="submitBtn" class="primary-btn">💾 Save & Submit</button>
+    </div>
+    <div class="btn-row" id="downloadSection" style="display: none;">
+      <div style="background: rgba(0, 255, 170, 0.1); color: #00ffaa; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px;">✅ Saved Successfully!</div>
+      <div style="display:flex; gap:10px;">
+        <button id="pdfBtn" style="flex:1;">📄 PDF</button>
+        <button id="certBtn" class="gold-btn" style="flex:1;">🏆 Certificate</button>
+      </div>
+      <button id="homeBtn" style="margin-top:20px; border:1px solid #555;">🏠 Start New Student</button>
+    </div>
+  </div>
+</div>
+<script type="module">
+  import { db, doc, updateDoc } from "./config.js";
+  import { generateCertificate } from "./certificate.js";
+  const { jsPDF } = window.jspdf;
+  const canvas = document.getElementById('drawingCanvas');
+  const ctx = canvas.getContext('2d');
+  function resize() { const s = canvas.toDataURL(); canvas.width = canvas.offsetWidth; canvas.height = 350; const i = new Image(); i.src = s; i.onload = () => ctx.drawImage(i,0,0); }
+  setTimeout(resize, 100); window.onresize = resize;
+  let isDrawing = false, mode = 'brush', color = '#ffffff', size = 5;
+  const getPos = (e) => { const r = canvas.getBoundingClientRect(); if(e.touches) return {x: e.touches[0].clientX-r.left, y: e.touches[0].clientY-r.top}; return {x: e.offsetX, y: e.offsetY}; };
+  const start = (e) => { isDrawing=true; ctx.beginPath(); const p=getPos(e); ctx.moveTo(p.x,p.y); if(e.type=='touchstart')e.preventDefault(); };
+  const move = (e) => { if(!isDrawing) return; if(e.type=='touchmove') e.preventDefault(); const p=getPos(e); ctx.lineWidth = size; ctx.lineCap = 'round'; ctx.globalCompositeOperation = mode==='eraser'?'destination-out':'source-over'; ctx.strokeStyle = mode==='eraser'?'rgba(0,0,0,1)':color; ctx.lineTo(p.x,p.y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+  const end = () => isDrawing=false;
+  canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move); canvas.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start); canvas.addEventListener('touchmove', move); canvas.addEventListener('touchend', end);
+  document.getElementById('brushBtn').onclick = (e) => { mode='brush'; e.target.classList.add('active'); document.getElementById('eraserBtn').classList.remove('active'); };
+  document.getElementById('eraserBtn').onclick = (e) => { mode='eraser'; e.target.classList.add('active'); document.getElementById('brushBtn').classList.remove('active'); };
+  document.getElementById('colorPicker').oninput = (e) => { color=e.target.value; if(mode=='eraser') document.getElementById('brushBtn').click(); };
+  document.getElementById('sizeSlider').oninput = (e) => size=e.target.value;
+  document.getElementById('clearBtn').onclick = () => ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  async function save() { const img = canvas.toDataURL("image/png"); const id = localStorage.getItem("current_student_id"); if(!id) { alert("Session lost."); throw new Error("No ID"); } await updateDoc(doc(db, "students", id), { drawingBase64: img }); }
+  document.getElementById('submitBtn').onclick = async () => { const btn = document.getElementById('submitBtn'); try { btn.textContent = "Saving..."; btn.disabled = true; await save(); document.getElementById('saveSection').style.display = 'none'; document.getElementById('downloadSection').style.display = 'flex'; } catch(e) { console.error(e); btn.textContent = "Save"; btn.disabled = false; } };
+  document.getElementById('certBtn').onclick = () => generateCertificate();
+  document.getElementById('pdfBtn').onclick = () => { const img = canvas.toDataURL("image/png"); const data = JSON.parse(localStorage.getItem("student_data")); const pdf = new jsPDF(); pdf.text(`Artwork by ${data.studentName}`, 20, 20); pdf.addImage(img, 'PNG', 20, 40, 170, 100); pdf.save("Art.pdf"); };
+  document.getElementById('homeBtn').onclick = () => window.location.href = "index.html";
+</script>
+</body>
+</html>

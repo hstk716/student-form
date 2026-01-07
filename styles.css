@@ -1,0 +1,55 @@
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+body.dark { --bg: #050505; --fg: #fff; --dot: #fff; --card: rgba(10,10,10,0.9); --accent: #00e5ff; --input-bg: rgba(255,255,255,0.05); }
+body.light { --bg: #f0f0f0; --fg: #111; --dot: #000; --card: rgba(255,255,255,0.9); --accent: #007bff; --input-bg: rgba(0,0,0,0.05); }
+
+body { background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; justify-content: center; align-items: center; transition: 0.3s; overflow-x: hidden; }
+
+/* DOT BACKGROUND */
+.dot-bg { position: fixed; inset: 0; background-image: radial-gradient(var(--dot) 1px, transparent 1px); background-size: 30px 30px; opacity: 0.1; animation: drift 50s linear infinite; z-index: -1; pointer-events: none; }
+@keyframes drift { to { background-position: 50px 50px; } }
+
+/* CARDS */
+.form-wrapper { width: 100%; display: flex; justify-content: center; padding: 20px; }
+.form-card { width: 100%; max-width: 500px; padding: 40px; background: var(--card); backdrop-filter: blur(25px); border: 1px solid rgba(125,125,125,0.2); border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+
+/* INPUTS */
+.header h2 { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.5; margin-bottom: 10px; text-align: center; }
+label { display: block; font-size: 20px; font-weight: 700; margin-bottom: 15px; color: var(--fg); }
+input, textarea, select { width: 100%; padding: 15px; font-size: 16px; color: var(--fg); background: var(--input-bg); border: 2px solid transparent; border-radius: 12px; outline: none; transition: 0.2s; }
+input:focus, textarea:focus, select:focus { border-color: var(--accent); background: rgba(255,255,255,0.1); }
+textarea { height: 150px; resize: none; }
+.phone-input-group { display: flex; gap: 10px; }
+#contact { flex-grow: 1; }
+
+/* BUTTONS */
+.btn-row { display: flex; flex-direction: column; gap: 10px; margin-top: 25px; }
+button { border: none; background: rgba(255,255,255,0.1); color: var(--fg); font-weight: 600; cursor: pointer; padding: 15px; border-radius: 12px; font-size: 16px; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+button:hover { transform: translateY(-2px); background: rgba(255,255,255,0.2); }
+.primary-btn { background: var(--fg); color: var(--bg); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+.primary-btn:hover { background: var(--accent); color: #000; }
+.gold-btn { border: 1px solid #FFD700; color: #FFD700; }
+
+/* PROGRESS */
+.progress-container { width: 100%; height: 6px; background: rgba(125,125,125,0.2); border-radius: 10px; margin-bottom: 30px; overflow: hidden; }
+.progress { height: 100%; width: 0%; background: var(--accent); transition: width 0.4s ease; }
+.question { display: none; }
+.question.active { display: block; animation: slideUp 0.4s forwards; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ADMIN TABLE */
+.admin-card { max-width: 1200px !important; width: 95%; }
+.admin-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 20px; font-size: 15px; text-align: left; }
+.admin-table th { background: rgba(255,255,255,0.1); color: var(--accent); padding: 15px; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; border-bottom: 2px solid rgba(125,125,125,0.2); }
+.admin-table td { padding: 15px; border-bottom: 1px solid rgba(125,125,125,0.1); color: var(--fg); vertical-align: middle; }
+.admin-table tr:hover { background: rgba(255,255,255,0.02); }
+
+/* ICONS */
+.theme-toggle, .admin-toggle { position: fixed; top: 20px; width: 45px; height: 45px; border-radius: 50%; background: var(--card); border: 1px solid rgba(125,125,125,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 100; }
+.theme-toggle { right: 20px; }
+.theme-toggle .icon { width: 14px; height: 14px; background: var(--fg); border-radius: 50%; }
+.admin-toggle { right: 80px; font-size: 18px; }
+
+/* MODAL */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 1000; }
+.modal-content { background: #111; padding: 30px; border-radius: 20px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; border: 1px solid #333; position: relative; }
+.modal-close { position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; color: #fff; }
