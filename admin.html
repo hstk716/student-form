@@ -8,19 +8,25 @@
 <body class="dark">
     <div class="form-wrapper" style="align-items: flex-start; padding-top: 50px;">
         <div class="form-card admin-card">
-            <div class="header" style="display:flex; justify-content:space-between; align-items:center;">
-                <h2>Live Student Data</h2>
-                <button onclick="location.href='index.html'" style="width:auto; padding:8px 15px; font-size:12px;">🏠 Home</button>
+            <div class="header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <h2>Live Student Data</h2>
+                    <span id="activeCount" style="color:#00ffaa; font-size:12px;">Waiting for data...</span>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="downloadCSV()" class="gold-btn" style="padding:8px 15px; font-size:12px;">📊 Export CSV</button>
+                    <button onclick="location.href='index.html'" style="padding:8px 15px; font-size:12px;">🏠 Home</button>
+                </div>
             </div>
             
             <table class="admin-table">
                 <thead>
                     <tr>
-                        <th style="width: 25%">Student</th>
-                        <th style="width: 30%">Contact</th>
-                        <th style="width: 15%; text-align:center;">Security</th>
-                        <th style="width: 15%">Work</th>
-                        <th style="width: 15%">Status</th>
+                        <th>Student</th>
+                        <th>Network/IP</th>
+                        <th style="text-align:center;">Loc</th>
+                        <th>Work</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody">
@@ -39,79 +45,133 @@
     </div>
 
     <script type="module">
-        import { db, collection, onSnapshot } from "./config.js";
+        import { db, collection, onSnapshot, doc, deleteDoc } from "./config.js";
 
-        // FUNCTION 1: VIEW STUDENT WORK
-        window.viewWork = (type, content) => {
+        // --- GLOBAL STORAGE FOR DATA (FIXES BIG STORY BUG) ---
+        window.allStudents = {};
+
+        // --- 1. VIEW WORK (Fixed Logic: Looks up data by ID) ---
+        window.viewWork = (id, type) => {
+            const data = window.allStudents[id];
+            if(!data) return alert("Error loading data");
+
             const modal = document.getElementById("infoModal");
             const body = document.getElementById("modalBody");
             document.getElementById("modalTitle").innerText = type === 'story' ? "📝 Student Story" : "🎨 Student Art";
             
             if(type === 'story') {
-                // We use decodeURIComponent to turn the "safe code" back into real text
-                const realText = decodeURIComponent(content);
-                body.innerHTML = `<p style="font-size:18px; line-height:1.6; color:#ccc; white-space: pre-wrap;">${realText}</p>`;
+                // Use innerText to prevent script hacking, allow scrolling
+                body.innerHTML = "";
+                const p = document.createElement("div");
+                p.style.cssText = "font-size:16px; line-height:1.6; color:#ccc; white-space: pre-wrap; max-height:60vh; overflow-y:auto; padding:10px; background:rgba(255,255,255,0.05); border-radius:8px;";
+                p.innerText = data.story || "No story content.";
+                body.appendChild(p);
             } else {
-                body.innerHTML = `<img src="${content}" style="width:100%; border-radius:10px; border:1px solid #444;">`;
+                body.innerHTML = `<img src="${data.drawingBase64}" style="width:100%; border-radius:10px;">`;
             }
             modal.style.display = "flex";
         };
 
-        // FUNCTION 2: VIEW SECURITY DETAILS
-        window.viewSecurity = (lat, lng, ip, device) => {
+        // --- 2. DELETE STUDENT ---
+        window.deleteStudent = async (id) => {
+            if(confirm("⚠️ PERMANENT DELETE: Are you sure?")) {
+                const p = prompt("Enter Admin Password:");
+                if(btoa(p) === "OTAyMTA=") {
+                    try {
+                        await deleteDoc(doc(db, "students", id));
+                        // No alert needed, table updates automatically
+                    } catch(e) { alert("Error: " + e.message); }
+                } else { alert("Wrong Password"); }
+            }
+        };
+
+        // --- 3. CSV EXPORT ---
+        window.downloadCSV = () => {
+            const rows = [["Name", "Grade", "Parent", "Phone", "IP Address", "Network", "Battery", "Story/Art"]];
+            
+            Object.values(window.allStudents).forEach(d => {
+                let workType = d.story ? "Story" : (d.drawingBase64 ? "Art" : "Pending");
+                // Escape quotes for CSV format
+                let cleanName = `"${d.studentName}"`;
+                let cleanStory = d.story ? `"${d.story.replace(/"/g, '""')}"` : "N/A";
+                
+                rows.push([
+                    cleanName, d.grade, d.parentName, d.contact, 
+                    d.ipAddress, d.connection, d.battery, workType
+                ]);
+            });
+
+            let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "student_data.csv");
+            document.body.appendChild(link);
+            link.click();
+        };
+
+        // --- 4. VIEW SECURITY ---
+        window.viewSecurity = (id) => {
+            const d = window.allStudents[id];
             const modal = document.getElementById("infoModal");
             const body = document.getElementById("modalBody");
             document.getElementById("modalTitle").innerText = "🔒 Security Profile";
             
-            const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
-            
+            const mapLink = d.location && d.location.lat ? 
+                `https://www.google.com/maps?q=${d.location.lat},${d.location.lng}` : "#";
+
             body.innerHTML = `
-                <div style="text-align:center; margin-bottom:20px;">
-                    <a href="${mapLink}" target="_blank" class="primary-btn" style="text-decoration:none; display:inline-block; margin-bottom:15px; background:#00e5ff; color:#000;">
-                        🗺️ Open Google Maps
-                    </a>
-                    <p style="color:#aaa; font-size:12px;">Coordinates: ${lat}, ${lng}</p>
+                <div style="text-align:center;">
+                    <a href="${mapLink}" target="_blank" class="primary-btn" style="text-decoration:none; display:inline-block; margin-bottom:15px; background:#00e5ff; color:#000;">🗺️ Open Google Maps</a>
                 </div>
                 <hr style="border-color:#333; margin:20px 0;">
-                <div style="color:#fff; text-align:left; font-size:14px; line-height:2;">
-                    <p><strong>🌐 IP Address:</strong> <br><span style="color:#00e5ff">${ip}</span></p>
-                    <p><strong>📱 Device Info:</strong> <br><span style="color:#ff00e5; font-family:monospace; font-size:12px;">${device}</span></p>
-                </div>
+                <p><strong>🌐 IP:</strong> <span style="color:#00e5ff">${d.ipAddress}</span></p>
+                <p><strong>📶 Network:</strong> <span style="color:#ffaa00">${d.connection || "Unknown"}</span></p>
+                <p><strong>🔋 Battery:</strong> <span style="color:#00ffaa">${d.battery || "Unknown"}</span></p>
+                <p><strong>📱 Device:</strong> <span style="color:#aaa; font-size:12px;">${d.deviceInfo}</span></p>
             `;
             modal.style.display = "flex";
         };
 
+        // --- 5. LIVE DATA LISTENER ---
         onSnapshot(collection(db, "students"), (snapshot) => {
             const tbody = document.getElementById("tableBody");
+            document.getElementById("activeCount").innerText = `🟢 Total Entries: ${snapshot.size}`;
+            
             if (snapshot.empty) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No data.</td></tr>`; return; }
             tbody.innerHTML = "";
+            window.allStudents = {}; // Reset global object
             
-            snapshot.forEach(doc => {
-                const d = doc.data();
+            snapshot.forEach(docSnap => {
+                const d = docSnap.data();
+                const id = docSnap.id;
                 
-                // 1. PIN ICON BUTTON
-                let pinBtn = `<span style="font-size:20px; opacity:0.3; cursor:not-allowed;">🚫</span>`;
+                // STORE DATA GLOBALLY (Fixes button limit issues)
+                window.allStudents[id] = d;
+
+                // LOCATION BUTTON
+                let pinBtn = `<span style="opacity:0.3">🚫</span>`;
                 if(d.location && d.location.lat) {
-                    pinBtn = `<button onclick='viewSecurity(${d.location.lat}, ${d.location.lng}, "${d.ipAddress || "Unknown"}", "${d.deviceInfo || "Unknown"}")' style="background:none; border:none; font-size:24px; cursor:pointer;" title="View Security Details">📍</button>`;
+                    pinBtn = `<button onclick='viewSecurity("${id}")' style="background:none; border:none; font-size:24px; cursor:pointer;" title="View Security">📍</button>`;
                 }
 
-                // 2. WORK BUTTON (FIXED LOGIC)
+                // WORK BUTTON
                 let workBtn = `<span style="opacity:0.3">-</span>`;
                 if(d.story) {
-                    // ENCODE THE STORY: This turns "Enter" and symbols into safe text (%20, %0A) so it never breaks the HTML
-                    const safeStory = encodeURIComponent(d.story);
-                    workBtn = `<button onclick='viewWork("story", "${safeStory}")' style="font-size:12px; padding:6px 12px; background:#00e5ff; color:#000; border-radius:6px; font-weight:bold;">View Story</button>`;
+                    workBtn = `<button onclick='viewWork("${id}", "story")' style="font-size:12px; padding:6px 12px; background:#00e5ff; color:#000; border-radius:6px; font-weight:bold;">View Story</button>`;
                 } else if (d.drawingBase64) {
-                    workBtn = `<button onclick='viewWork("art", "${d.drawingBase64}")' style="font-size:12px; padding:6px 12px; background:#ff00e5; color:#fff; border-radius:6px; font-weight:bold;">View Art</button>`;
+                    workBtn = `<button onclick='viewWork("${id}", "art")' style="font-size:12px; padding:6px 12px; background:#ff00e5; color:#fff; border-radius:6px; font-weight:bold;">View Art</button>`;
                 }
 
                 const row = `
                     <tr>
                         <td><b>${d.studentName}</b><br><small>${d.grade} (${d.section})</small></td>
-                        <td>${d.parentName}<br><small>${d.contact}</small></td>
+                        <td style="font-size:11px; color:#aaa;">IP: ${d.ipAddress.split('(')[0]}<br><span style="color:#ffaa00">${d.connection || "?"}</span></td>
                         <td style="text-align:center;">${pinBtn}</td>
-                        <td>${workBtn}</td>
-                        <td><span style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; font-size: 11px;">${(d.story || d.drawingBase64) ? "✅ DONE" : "⏳"}</span></td>
+                        <td style="text-align:center;">${workBtn}</td>
+                        <td style="text-align:center;">
+                            <button onclick="deleteStudent('${id}')" style="background:rgba(255,0,0,0.2); border:1px solid red; color:red; padding:6px 10px; border-radius:6px; cursor:pointer;">🗑️</button>
+                        </td>
                     </tr>
                 `;
                 tbody.innerHTML += row;
