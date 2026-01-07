@@ -48,7 +48,9 @@
             document.getElementById("modalTitle").innerText = type === 'story' ? "📝 Student Story" : "🎨 Student Art";
             
             if(type === 'story') {
-                body.innerHTML = `<p style="font-size:18px; line-height:1.6; color:#ccc; white-space: pre-wrap;">${content}</p>`;
+                // We use decodeURIComponent to turn the "safe code" back into real text
+                const realText = decodeURIComponent(content);
+                body.innerHTML = `<p style="font-size:18px; line-height:1.6; color:#ccc; white-space: pre-wrap;">${realText}</p>`;
             } else {
                 body.innerHTML = `<img src="${content}" style="width:100%; border-radius:10px; border:1px solid #444;">`;
             }
@@ -61,7 +63,7 @@
             const body = document.getElementById("modalBody");
             document.getElementById("modalTitle").innerText = "🔒 Security Profile";
             
-            const mapLink = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+            const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
             
             body.innerHTML = `
                 <div style="text-align:center; margin-bottom:20px;">
@@ -90,14 +92,14 @@
                 // 1. PIN ICON BUTTON
                 let pinBtn = `<span style="font-size:20px; opacity:0.3; cursor:not-allowed;">🚫</span>`;
                 if(d.location && d.location.lat) {
-                    // We pass data to the modal function on click
                     pinBtn = `<button onclick='viewSecurity(${d.location.lat}, ${d.location.lng}, "${d.ipAddress || "Unknown"}", "${d.deviceInfo || "Unknown"}")' style="background:none; border:none; font-size:24px; cursor:pointer;" title="View Security Details">📍</button>`;
                 }
 
-                // 2. WORK BUTTON
+                // 2. WORK BUTTON (FIXED LOGIC)
                 let workBtn = `<span style="opacity:0.3">-</span>`;
                 if(d.story) {
-                    const safeStory = d.story.replace(/"/g, '"').replace(/'/g, "'");
+                    // ENCODE THE STORY: This turns "Enter" and symbols into safe text (%20, %0A) so it never breaks the HTML
+                    const safeStory = encodeURIComponent(d.story);
                     workBtn = `<button onclick='viewWork("story", "${safeStory}")' style="font-size:12px; padding:6px 12px; background:#00e5ff; color:#000; border-radius:6px; font-weight:bold;">View Story</button>`;
                 } else if (d.drawingBase64) {
                     workBtn = `<button onclick='viewWork("art", "${d.drawingBase64}")' style="font-size:12px; padding:6px 12px; background:#ff00e5; color:#fff; border-radius:6px; font-weight:bold;">View Art</button>`;
